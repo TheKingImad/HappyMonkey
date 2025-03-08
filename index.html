@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Happy Monkey</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        
+        #startScreen {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(#87CEEB, #E0FFFF);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+        
+        #gameScreen {
+            display: none;
+        }
+        
+        #gameOver {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 3;
+        }
+        
+        button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            margin: 10px;
+        }
+        
+        #score {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            font-size: 30px;
+            color: #ffd400;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        
+        .basket {
+            position: absolute;
+            width: 100px;
+            height: 65px;
+            transition: transform 0.1s;
+            touch-action: none; /* Prevent default touch behaviors */
+            bottom: 70px;
+        }
+
+        /* Add hover/active states for better feedback */
+        .basket:active {
+            transform: scale(1.1);
+            transition: transform 0.1s;
+        }
+        
+        .banana {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            animation: rotate 2s linear infinite;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>Banana Catcher</h1>
+        <button onclick="startGame()">Play Game</button>
+        <p>Use arrow keys to move the basket!</p>
+    </div>
+
+    <div id="gameScreen">
+        <div id="score">Score: 0</div>
+    </div>
+
+    <div id="gameOver">
+        <h2>Game Over!</h2>
+        <p id="finalScore">Score: 0</p>
+        <button onclick="startGame()">Play Again</button>
+    </div>
+
+    <script>
+        let basket = null;
+        let score = 0;
+        let gameActive = false;
+        const BASKET_SPEED = 20;
+        const BANANA_SPEED = 5;
+
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'block';
+            
+            // Reset game state
+            score = 0;
+            gameActive = true;
+            document.getElementById('score').textContent = `Score: ${score}`;
+            
+            // Create basket
+            if (!basket) {
+                basket = document.createElement('img');
+                basket.className = 'basket';
+                basket.src = 'basket.png';
+                document.getElementById('gameScreen').appendChild(basket);
+            }
+            basket.style.left = `${window.innerWidth/2 - 40}px`;
+            basket.style.bottom = '70px';
+
+            // Add touch event listeners
+            basket.addEventListener('touchstart', handleTouchStart);
+            basket.addEventListener('touchmove', handleTouchMove);
+            basket.addEventListener('touchend', handleTouchEnd);
+            // Start banana falling
+            startBananas();
+        }
+
+        // Touch control handlers
+        function handleTouchStart(e) {
+            if (!gameActive) return;
+            isDragging = true;
+            startX = e.touches[0].clientX;
+            initialBasketX = parseInt(basket.style.left) || 0;
+            e.preventDefault();
+        }
+
+        function handleTouchMove(e) {
+            if (!isDragging || !gameActive) return;
+            const currentX = e.touches[0].clientX;
+            const deltaX = currentX - startX;
+            const newX = initialBasketX + deltaX;
+            
+            // Keep basket within screen bounds
+            const maxX = window.innerWidth - basket.offsetWidth;
+            basket.style.left = `${Math.max(0, Math.min(maxX, newX))}px`;
+            e.preventDefault();
+        }
+
+        function handleTouchEnd() {
+            isDragging = false;
+        }
+
+        function startBananas() {
+            function createBanana() {
+                if (!gameActive) return;
+                
+                const banana = document.createElement('img');
+                banana.className = 'banana';
+                banana.src = 'banana.png';
+                banana.style.left = `${Math.random() * (window.innerWidth - 40)}px`;
+                banana.style.top = '-40px';
+                document.getElementById('gameScreen').appendChild(banana);
+
+                const fall = setInterval(() => {
+                    if (!gameActive) {
+                        clearInterval(fall);
+                        return;
+                    }
+                    
+                    const top = parseInt(banana.style.top) || 0;
+                    banana.style.top = `${top + BANANA_SPEED}px`;
+
+                    // Collision detection
+                    const basketRect = basket.getBoundingClientRect();
+                    const bananaRect = banana.getBoundingClientRect();
+                    
+                    if (bananaRect.bottom > basketRect.top && 
+                        bananaRect.right > basketRect.left && 
+                        bananaRect.left < basketRect.right) {
+                        score += 10;
+                        document.getElementById('score').textContent = `Score: ${score}`;
+                        banana.remove();
+                        clearInterval(fall);
+                    }
+
+                    if (bananaRect.top > window.innerHeight) {
+                        gameOver();
+                        clearInterval(fall);
+                    }
+                }, 20);
+
+                setTimeout(createBanana, Math.random() * 2000);
+            }
+
+            createBanana();
+        }
+
+        function gameOver() {
+            gameActive = false;
+            document.getElementById('gameOver').style.display = 'flex';
+            document.getElementById('finalScore').textContent = `Score: ${score}`;
+            document.querySelectorAll('.banana').forEach(banana => banana.remove());
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            
+            const currentLeft = parseInt(basket.style.left) || 0;
+            if (e.key === 'ArrowLeft') {
+                basket.style.left = `${Math.max(0, currentLeft - BASKET_SPEED)}px`;
+            }
+            if (e.key === 'ArrowRight') {
+                basket.style.left = `${Math.min(window.innerWidth - 80, currentLeft + BASKET_SPEED)}px`;
+            }
+        });
+
+        // PWA Setup
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => console.log('SW registered'))
+                    .catch(err => console.log('SW registration failed'));
+            });
+        }
+    </script>
+</body>
+</html>
